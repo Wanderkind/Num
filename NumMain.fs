@@ -152,7 +152,7 @@ let sqrt (x: num) =
     | Int a -> let p, q = squareExtract a in Sqt (p, Int q)
     | Sqt (a, b) -> let p, q = squareExtract a in Sqt (p, Sqt(q, b)) |> sqrtsan
     | Frc (a, b) -> Frc ((Sqt (1, intmul b a)) |> sqrtsan, b) |> fracsan
-    | _ -> x
+    | _ -> Sqt (Int 1, x)
 
 let listsum lst =
     let rec f acc = function
