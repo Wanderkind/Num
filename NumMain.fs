@@ -194,6 +194,8 @@ let rec negative (x: num) =
 let rec sqrt (x: num) =
     if negative x then failwith "#### Negative value in sqrt. ####" else
     match x with
+    | Zero -> Zero
+    | Int 0 -> Zero
     | Int a -> let p, q = squareExtract a in Sqt (p, Int q)
     | Sqt (a, b) -> let p, q = squareExtract a in Sqt (p, Sqt (q, b)) |> sqrtSanitize
     | Frc (a, b) -> Frc (Sqt (1, intmul b a) |> sqrtSanitize, b) |> fracSanitize
