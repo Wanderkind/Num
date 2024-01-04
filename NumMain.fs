@@ -1,16 +1,17 @@
 module Num
 
-let ( %% ) (a: int) (b: int) = (a % b + b) % b
+let ( %% ) (a: int64) (b: int64) = (a % b + abs(b)) % (abs b)
 
-let rec gcd (a: int) (b: int) =
-    if b = 0 then a
-    else gcd b (a %% b)
+let rec gcd (a: int64) (b: int64) =
+    let p, q = abs a, abs b
+    if q = 0 then p
+    else gcd q (p %% q)
 
-let squareExtract (x: int) =
+let squareExtract (x: int64) =
     let rec f a factor acc =
-        if a = 1 then acc else
+        if a = 1L then acc else
         let rec g u two acc' =
-            if u %% factor > 0 then f u (factor + 1) acc'
+            if u %% factor > 0 then f u (factor + 1L) acc'
             else g (u/factor) (not two) (acc'*(if two then factor else 1))
         g a false acc
     let k = f x 2 1
@@ -18,9 +19,9 @@ let squareExtract (x: int) =
 
 type num =
 | Zero
-| Int of int
-| Sqt of int * num
-| Frc of num * int
+| Int of int64
+| Sqt of int64 * num
+| Frc of num * int64
 | Add of num * num
 
 let rec reducible (p: num) (q: num) =
@@ -39,11 +40,11 @@ let rec reducible (p: num) (q: num) =
     | (_, Add (a, b)) -> reducible a p || reducible b p
     | _ -> false
 
-let rec intmul (x: int) (y: num) =
+let rec intmul (x: int64) (y: num) =
     if x = 0 then Zero else
     match y with
     | Zero -> Zero
-    | Int 0 -> Zero
+    | Int 0L -> Zero
     | Int a -> Int (x*a)
     | Sqt (a, b) -> Sqt (x*a, b) |> sqrtSanitize
     | Frc (a, b) -> Frc (intmul x a, b) |> fracSanitize
@@ -53,8 +54,8 @@ and fracSanitize (x: num) =
     match x with
     | Frc (p, q) ->
         match q with
-        | 0 -> failwith "#### Frc (_, 0) generated. ####"
-        | 1 -> p
+        | 0L -> failwith "#### Frc (_, 0) generated. ####"
+        | 1L -> p
         | _ ->
             if q < 0 then Frc (intmul -1 p, -q) |> fracSanitize else
             match p with
@@ -100,12 +101,12 @@ and add (x: num) (y: num) =
     | (_, Zero) -> x
     | (Int a, Int b) -> if a + b = 0 then Zero else Int (a + b)
     | (Int a, Sqt (b, c)) -> Add (x, y)
-    | (Int a, Frc (b, c)) -> Frc (add (Int (a*c)) b, c) |> fracSanitize
+    | (Int a, Frc (b, c)) -> if reducible x b then Frc (add (Int (a*c)) b, c) |> fracSanitize else Add (x, y)
     | (Sqt (a, b), Int c) -> Add (x, y)
     | (Sqt (a, b), Sqt (c, d)) -> if b <> d then Add (x, y) else if a + c = 0 then Zero else Sqt((a + c), b) |> sqrtSanitize
-    | (Sqt (a, b), Frc (c, d)) -> Frc (add (Sqt (a*d, b)) c, d) |> fracSanitize
-    | (Frc (a, b), Int c) -> Frc (add (Int (c*b)) a, b) |> fracSanitize
-    | (Frc (a, b), Sqt (c, d)) -> Frc (add (Sqt (c*b, d)) a, b) |> fracSanitize
+    | (Sqt (a, b), Frc (c, d)) -> if reducible x c then Frc (add (Sqt (a*d, b)) c, d) |> fracSanitize else Add (x, y)
+    | (Frc (a, b), Int c) -> if reducible a y then Frc (add (Int (c*b)) a, b) |> fracSanitize else Add (x, y)
+    | (Frc (a, b), Sqt (c, d)) -> if reducible a y then Frc (add (Sqt (c*b, d)) a, b) |> fracSanitize else Add (x, y)
     | (Frc (a, b), Frc (c, d)) -> if reducible a c then Frc (add (intmul d a) (intmul b c) |> addSanitize, b*d) |> fracSanitize else Add (x, y)
     | _ -> Add (x, y) |> addSanitize
 
@@ -114,19 +115,19 @@ and sqrtSanitize (x: num) =
     | Zero -> Zero
     | Sqt (a, b) ->
         match a with
-        | 0 -> Zero
+        | 0L -> Zero
         | _ ->
             match b with
             | Zero -> Zero
-            | Int 0 -> Zero
+            | Int 0L -> Zero
             | Int n ->
                 match squareExtract n with
-                | (1, d) -> x
-                | (c, 1) -> Int (c*a)
+                | (1L, d) -> x
+                | (c, 1L) -> Int (c*a)
                 | (c, d) -> Sqt (c*a, Int d) |> sqrtSanitize
             | Sqt (p, q) ->
                 match squareExtract p with
-                | (1, d) -> x
+                | (1L, d) -> x
                 | (c, d) -> Sqt (c*a, Sqt (d, q) |> sqrtSanitize) |> sqrtSanitize
             | Frc (p, q) -> Frc ((Sqt (a, intmul q p) |> sqrtSanitize), q) |> fracSanitize
             | Add (p, q) ->
@@ -135,11 +136,11 @@ and sqrtSanitize (x: num) =
                     match (p, q) with
                     | (Int c, Sqt (d, Int e)) ->
                         if d %% 2 = 1 then x else
-                        let k = d/2
-                        let rec f u v =
+                        let k = d/2L
+                        let rec f (u: int64) (v: int64) =
                             if u*v = k*k*e || u < 0 then (u, v)
                             else f (u - k) (v + k)
-                        let u, v = f (c/2) (c - c/2)
+                        let u, v = f (c/2L) (c - c/2L)
                         if u < 0 then x else
                         Add (Sqt ((if c*d > 0 then 1 else -1), Int u) |> sqrtSanitize, Sqt (1, Int v) |> sqrtSanitize) |> addSanitize
                     | _ -> x (* WIP *)
@@ -167,16 +168,16 @@ let rec square (x: num) =
     | Int a -> Int (a*a)
     | Sqt (a, b) -> intmul (a*a) b
     | Frc (a, b) -> Frc (square a, b*b) |> fracSanitize
-    | Add (a, b) -> mul a b |> intmul 2 |> add (add (square a) (square b)) |> addSanitize
+    | Add (a, b) -> mul a b |> intmul 2 |> add (square a) |> add (square b) |> addSanitize
 
 let rec div (x: num) (y: num) =
     match y with
     | Zero -> failwith "#### Division by Zero attempted. ####"
-    | Int 0 -> failwith "#### Division by Int 0 attempted. ####"
+    | Int 0L -> failwith "#### Division by Int 0 attempted. ####"
     | Int a -> Frc (x, a) |> fracSanitize
     | Sqt (a, b) -> div (mul x (Sqt (1, b))) (intmul a b)
     | Frc (a, b) -> div (intmul b x) a |> fracSanitize
-    | Add (a, b) -> div (intmul -1 b |> add a |> addSanitize) (square b |> intmul -1 |> add (square a) |> addSanitize) |> fracSanitize
+    | Add (a, b) -> div (intmul -1 b |> add a |> addSanitize) (square b |> intmul -1 |> add (square a) |> addSanitize) |> fracSanitize |> mul x
 
 let rec negative (x: num) =
     match x with
@@ -195,7 +196,7 @@ let rec sqrt (x: num) =
     if negative x then failwith "#### Negative value in sqrt. ####" else
     match x with
     | Zero -> Zero
-    | Int 0 -> Zero
+    | Int 0L -> Zero
     | Int a -> let p, q = squareExtract a in Sqt (p, Int q)
     | Sqt (a, b) -> let p, q = squareExtract a in Sqt (p, Sqt (q, b)) |> sqrtSanitize
     | Frc (a, b) -> Frc (Sqt (1, intmul b a) |> sqrtSanitize, b) |> fracSanitize
