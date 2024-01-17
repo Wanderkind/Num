@@ -31,7 +31,7 @@ let rec definite (x: item) : bool =
     | Expr (opr: operation) ->
         match opr with
         | OprAdd (y, z) | OprSub (y, z) | OprMul (y, z) | OprDiv (y, z) | OprEtc_Binary (_, y, z) -> definite y && definite z
-        | OprSqr y | OprSqt y | OprNeg y | OprPow (y, _) -> definite y | OprEtc_Unary (_, y) -> definite y
+        | OprSqr y | OprSqt y | OprNeg y | OprPow (y, _) | OprEtc_Unary (_, y) -> definite y
         | OprEtc_Etc (_, y) -> List.forall definite y
 
 let comprehensive_numSanitaize (n: num) : num =
